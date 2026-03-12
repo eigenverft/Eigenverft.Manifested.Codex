@@ -54,22 +54,22 @@ Resolve-CodexCommandPath
 Resolve-CodexDirectory -Directory 'C:\temp'
 
 # Show detected Node flavor
-Get-CodexNodeFlavor
+Get-NodeFlavor
 
 # Show the latest cached Node zip
 Get-LatestCachedNodeZip
 
 # Ensure a Node zip is present in cache
-Ensure-CodexNodeZip
+Ensure-NodeZip
 
 # Force refresh the cached Node zip
-Ensure-CodexNodeZip -RefreshNode
+Ensure-NodeZip -RefreshNode
 
 # Ensure the managed Node runtime is extracted and ready
-Ensure-CodexNodeRuntime
+Ensure-NodeRuntime
 
 # Force refresh and re-extract the managed Node runtime
-Ensure-CodexNodeRuntime -RefreshNode
+Ensure-NodeRuntime -RefreshNode
 
 # Inspect the persisted manager state
 Get-CodexManagerState

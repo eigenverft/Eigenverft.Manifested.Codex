@@ -2,7 +2,7 @@
     Eigenverft.Manifested.Codex.NodeRuntimeAndCache
 #>
 
-function Get-CodexNodeFlavor {
+function Get-NodeFlavor {
     [CmdletBinding()]
     param()
 
@@ -19,10 +19,10 @@ function Get-CodexNodeFlavor {
     throw 'Only 64-bit Windows targets are supported by this bootstrap.'
 }
 
-function Get-CodexNodeReleaseOnline {
+function Get-NodeReleaseOnline {
     [CmdletBinding()]
     param(
-        [string]$Flavor = (Get-CodexNodeFlavor)
+        [string]$Flavor = (Get-NodeFlavor)
     )
 
     $response = Invoke-WebRequest -Uri 'https://nodejs.org/dist/index.json' -UseBasicParsing
@@ -30,7 +30,7 @@ function Get-CodexNodeReleaseOnline {
 
     $release = $items |
         Where-Object { $_.lts -and $_.lts -ne $false } |
-        Sort-Object -Descending -Property @{ Expression = { ConvertTo-CodexVersion -VersionText $_.version } } |
+        Sort-Object -Descending -Property @{ Expression = { ConvertTo-NodeVersion -VersionText $_.version } } |
         Select-Object -First 1
 
     if (-not $release) {
@@ -53,7 +53,7 @@ function Get-CodexNodeReleaseOnline {
 function Get-CachedNodeZipFiles {
     [CmdletBinding()]
     param(
-        [string]$Flavor = (Get-CodexNodeFlavor),
+        [string]$Flavor = (Get-NodeFlavor),
         [string]$LocalRoot = (Join-Path $env:LOCALAPPDATA 'CodexSlots')
     )
 
@@ -74,7 +74,7 @@ function Get-CachedNodeZipFiles {
                 Name    = $_.Name
             }
         } |
-        Sort-Object -Descending -Property @{ Expression = { ConvertTo-CodexVersion -VersionText $_.Version } }
+        Sort-Object -Descending -Property @{ Expression = { ConvertTo-NodeVersion -VersionText $_.Version } }
 
     return @($items)
 }
@@ -82,14 +82,14 @@ function Get-CachedNodeZipFiles {
 function Get-LatestCachedNodeZip {
     [CmdletBinding()]
     param(
-        [string]$Flavor = (Get-CodexNodeFlavor),
+        [string]$Flavor = (Get-NodeFlavor),
         [string]$LocalRoot = (Join-Path $env:LOCALAPPDATA 'CodexSlots')
     )
 
     return (Get-CachedNodeZipFiles -Flavor $Flavor -LocalRoot $LocalRoot | Select-Object -First 1)
 }
 
-function Get-CodexManagedNodeHome {
+function Get-ManagedNodeHome {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -105,7 +105,7 @@ function Get-CodexManagedNodeHome {
     return (Join-Path $mgr.NodeToolsRoot ($Version.TrimStart('v') + '\' + $Flavor))
 }
 
-function Test-CodexManagedNodeHome {
+function Test-ManagedNodeHome {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -118,7 +118,7 @@ function Test-CodexManagedNodeHome {
     return (Test-Path -LiteralPath $nodeExe) -and (Test-Path -LiteralPath $npmCmd)
 }
 
-function Get-CodexNodeExpectedSha256 {
+function Get-NodeExpectedSha256 {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -138,11 +138,11 @@ function Get-CodexNodeExpectedSha256 {
     return (($line -split '\s+')[0]).Trim().ToLowerInvariant()
 }
 
-function Ensure-CodexNodeZip {
+function Ensure-NodeZip {
     [CmdletBinding()]
     param(
         [switch]$RefreshNode,
-        [string]$Flavor = (Get-CodexNodeFlavor),
+        [string]$Flavor = (Get-NodeFlavor),
         [string]$LocalRoot = (Join-Path $env:LOCALAPPDATA 'CodexSlots')
     )
 
@@ -152,7 +152,7 @@ function Ensure-CodexNodeZip {
     $onlineRelease = $null
 
     try {
-        $onlineRelease = Get-CodexNodeReleaseOnline -Flavor $Flavor
+        $onlineRelease = Get-NodeReleaseOnline -Flavor $Flavor
     }
     catch {
         $onlineRelease = $null
@@ -166,7 +166,7 @@ function Ensure-CodexNodeZip {
             Invoke-WebRequest -Uri $onlineRelease.DownloadUrl -OutFile $zipPath -UseBasicParsing
         }
 
-        $expectedHash = Get-CodexNodeExpectedSha256 -ShasumsUrl $onlineRelease.ShasumsUrl -FileName $onlineRelease.FileName
+        $expectedHash = Get-NodeExpectedSha256 -ShasumsUrl $onlineRelease.ShasumsUrl -FileName $onlineRelease.FileName
         $actualHash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
 
         if ($actualHash -ne $expectedHash) {
@@ -196,18 +196,18 @@ function Ensure-CodexNodeZip {
     }
 }
 
-function Ensure-CodexNodeRuntime {
+function Ensure-NodeRuntime {
     [CmdletBinding()]
     param(
         [switch]$RefreshNode,
-        [string]$Flavor = (Get-CodexNodeFlavor),
+        [string]$Flavor = (Get-NodeFlavor),
         [string]$LocalRoot = (Join-Path $env:LOCALAPPDATA 'CodexSlots')
     )
 
-    $zipInfo = Ensure-CodexNodeZip -RefreshNode:$RefreshNode -Flavor $Flavor -LocalRoot $LocalRoot
-    $nodeHome = Get-CodexManagedNodeHome -Version $zipInfo.Version -Flavor $zipInfo.Flavor -LocalRoot $LocalRoot
+    $zipInfo = Ensure-NodeZip -RefreshNode:$RefreshNode -Flavor $Flavor -LocalRoot $LocalRoot
+    $nodeHome = Get-ManagedNodeHome -Version $zipInfo.Version -Flavor $zipInfo.Flavor -LocalRoot $LocalRoot
 
-    if (-not (Test-CodexManagedNodeHome -NodeHome $nodeHome)) {
+    if (-not (Test-ManagedNodeHome -NodeHome $nodeHome)) {
         $mgr = Get-CodexManagerLayout -LocalRoot $LocalRoot
         Ensure-CodexDirectory -Path (Split-Path -Parent $nodeHome)
 

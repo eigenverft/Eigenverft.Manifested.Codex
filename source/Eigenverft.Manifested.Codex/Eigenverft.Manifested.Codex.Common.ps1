@@ -173,7 +173,7 @@ function Save-CodexSlotMetadata {
     } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $slot.SlotMeta -Encoding UTF8
 }
 
-function ConvertTo-CodexVersion {
+function ConvertTo-NodeVersion {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]

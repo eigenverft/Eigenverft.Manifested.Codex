@@ -155,15 +155,15 @@ Slot management:
 
 Node runtime and cache:
 
-- `Get-CodexNodeFlavor`
-- `Get-CodexNodeReleaseOnline`
+- `Get-NodeFlavor`
+- `Get-NodeReleaseOnline`
 - `Get-CachedNodeZipFiles`
 - `Get-LatestCachedNodeZip`
-- `Get-CodexManagedNodeHome`
-- `Test-CodexManagedNodeHome`
-- `Get-CodexNodeExpectedSha256`
-- `Ensure-CodexNodeZip`
-- `Ensure-CodexNodeRuntime`
+- `Get-ManagedNodeHome`
+- `Test-ManagedNodeHome`
+- `Get-NodeExpectedSha256`
+- `Ensure-NodeZip`
+- `Ensure-NodeRuntime`
 
 Metadata, install, and session helpers:
 

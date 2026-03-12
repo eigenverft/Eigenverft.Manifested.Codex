@@ -71,8 +71,8 @@ function Use-CodexSlot {
         throw "Slot '$Name' has no Node metadata. Re-run codex-init -Name $Name."
     }
 
-    $nodeHome = Get-CodexManagedNodeHome -Version $meta.NodeVersion -Flavor $meta.NodeFlavor -LocalRoot $LocalRoot
-    if (-not (Test-CodexManagedNodeHome -NodeHome $nodeHome)) {
+    $nodeHome = Get-ManagedNodeHome -Version $meta.NodeVersion -Flavor $meta.NodeFlavor -LocalRoot $LocalRoot
+    if (-not (Test-ManagedNodeHome -NodeHome $nodeHome)) {
         throw "Managed Node runtime for slot '$Name' is missing. Re-run codex-init -Name $Name."
     }
 
@@ -101,7 +101,7 @@ function Initialize-CodexSlot {
         [string]$LocalRoot = (Join-Path $env:LOCALAPPDATA 'CodexSlots')
     )
 
-    $runtime = Ensure-CodexNodeRuntime -RefreshNode:$RefreshNode -LocalRoot $LocalRoot
+    $runtime = Ensure-NodeRuntime -RefreshNode:$RefreshNode -LocalRoot $LocalRoot
 
     Install-CodexIntoSlot `
         -Name $Name `
@@ -139,7 +139,7 @@ function Test-CodexSlot {
     $codexVersionText = $null
 
     if ($meta) {
-        $nodeHome = Get-CodexManagedNodeHome -Version $meta.NodeVersion -Flavor $meta.NodeFlavor -LocalRoot $LocalRoot
+        $nodeHome = Get-ManagedNodeHome -Version $meta.NodeVersion -Flavor $meta.NodeFlavor -LocalRoot $LocalRoot
         $nodeExe = Join-Path $nodeHome 'node.exe'
         $npmCmd = Join-Path $nodeHome 'npm.cmd'
 
@@ -172,7 +172,7 @@ function Test-CodexSlot {
         CodexVersionText    = $codexVersionText
         CodexResolvesOnPath = [bool]$resolvedCodex
         ResolvedCodexPath   = if ($resolvedCodex) { $resolvedCodex.Source } else { $null }
-        ReadyToRun          = ($slotInstalled -and (Test-CodexManagedNodeHome -NodeHome $nodeHome))
+        ReadyToRun          = ($slotInstalled -and (Test-ManagedNodeHome -NodeHome $nodeHome))
         StartCommand        = 'codex'
     }
 }
@@ -256,7 +256,7 @@ function Get-CodexState {
 
     $mgr = Get-CodexManagerLayout -SlotsRoot $SlotsRoot -LocalRoot $LocalRoot
     $manager = Get-CodexManagerState -SlotsRoot $SlotsRoot -LocalRoot $LocalRoot
-    $flavor = Get-CodexNodeFlavor
+    $flavor = Get-NodeFlavor
     $cached = Get-LatestCachedNodeZip -Flavor $flavor -LocalRoot $LocalRoot
 
     $resolvedNode = Get-Command node -ErrorAction SilentlyContinue
@@ -271,7 +271,7 @@ function Get-CodexState {
 
     $activeNodeHome = $null
     if ($manager.NodeVersion -and $manager.NodeFlavor) {
-        $activeNodeHome = Get-CodexManagedNodeHome -Version $manager.NodeVersion -Flavor $manager.NodeFlavor -LocalRoot $LocalRoot
+        $activeNodeHome = Get-ManagedNodeHome -Version $manager.NodeVersion -Flavor $manager.NodeFlavor -LocalRoot $LocalRoot
     }
 
     [pscustomobject]@{
