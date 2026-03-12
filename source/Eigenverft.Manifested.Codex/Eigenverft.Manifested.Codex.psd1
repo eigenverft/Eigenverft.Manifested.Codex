@@ -119,6 +119,10 @@ AliasesToExport = @()
 # List of all files packaged with this module
 FileList = @(
     'Eigenverft.Manifested.Codex.ps1',
+    'Eigenverft.Manifested.Codex.Common.ps1',
+    'Eigenverft.Manifested.Codex.NodeRuntimeAndCache.ps1',
+    'Eigenverft.Manifested.Codex.MetadataInstallAndSessions.ps1',
+    'Eigenverft.Manifested.Codex.SlotManagement.ps1',
     'Eigenverft.Manifested.Codex.psm1',
     'Eigenverft.Manifested.Codex.psd1',
     'LICENSE.txt'
