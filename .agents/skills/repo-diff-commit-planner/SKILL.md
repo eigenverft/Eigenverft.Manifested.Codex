@@ -35,6 +35,7 @@ Use this skill to inspect current repository differences, decide what is ready t
 - List changed, untracked, deleted, and renamed files.
 - Summarize change scope by area (feature, bugfix, docs, config, tests, refactor).
 - Identify potentially sensitive or generated files that should not be committed.
+- Check whether any candidate file is ignored by `.gitignore`, `.git/info/exclude`, or a global excludes file before staging it.
 
 ### 2. Commit-Readiness Analysis
 
@@ -42,6 +43,7 @@ Use this skill to inspect current repository differences, decide what is ready t
 - Check dependency links between files to avoid broken intermediate commits.
 - Highlight risky changes needing explicit confirmation.
 - Aim to commit every `commit-now` group before finishing the task.
+- Treat ignored files, local secret files, API keys, token-bearing config, and other secret-like artifacts as `hold` by default unless the user explicitly requests versioning them.
 
 ### 3. Logical Grouping
 
@@ -69,6 +71,10 @@ Use this skill to inspect current repository differences, decide what is ready t
 
 - Stage only the files that belong to the current group.
 - Commit each group with the drafted message using non-interactive git commands.
+- If `git add` reports that a path is ignored, do not use `git add -f` or any force-add switch as a shortcut.
+- When an ignored file seems to be showing up in status anyway, diagnose whether it is already tracked with `git ls-files` and confirm the matching ignore rule with `git check-ignore -v --no-index` before changing anything.
+- If an ignored file is already tracked and should stay local-only, prefer removing it from version control with `git rm --cached` instead of trying to restage or re-force-add it.
+- Only version an ignored file after explicit user confirmation that the ignore should be bypassed, and call out the consequence clearly before doing so.
 - If a git command fails because of `.git/index.lock` or a likely concurrent git process, wait a few seconds and retry before treating it as a blocker.
 - Preferred retry behavior for transient git locking:
   - wait about 2 to 5 seconds
@@ -124,6 +130,7 @@ Only expand beyond that when:
 ## Execution Guardrails
 
 - Do not use destructive commands such as `git reset --hard`, `git checkout --`, or force-push unless explicitly requested.
+- Do not use `git add -f`, `git add --force`, or similar overrides to stage ignored files unless the user has explicitly confirmed that bypassing ignore rules is intended.
 - Do not amend commits unless explicitly requested.
 - Do not commit files marked `hold` or `needs-review` just to empty the worktree.
 - If unexpected changes appear during execution, stop and report the issue before continuing.
