@@ -13,7 +13,7 @@
 RootModule = 'Eigenverft.Manifested.Codex.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.20261.32861'
+ModuleVersion = '1.20261.32898'
 
 # Supported PSEditions
 CompatiblePSEditions = @('Desktop', 'Core')
@@ -128,7 +128,7 @@ PrivateData = @{
         ReleaseNotes = 'Refocused the module into a slim Codex task and session wrapper.'
 
         # Prerelease string of this module
-        Prerelease = 'dev'
+        Prerelease = ''
 
         # Flag to indicate whether the module requires explicit user acceptance for install/update/save
         # RequireLicenseAcceptance = $false
