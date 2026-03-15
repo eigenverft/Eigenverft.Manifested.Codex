@@ -46,6 +46,10 @@ Import-Module Eigenverft.Manifested.Codex -Force
 Get-CodexVersion
 ```
 
+### 🧱 Sandbox Companion
+
+If you want to use this project inside a disposable Windows Sandbox session, [`Eigenverft.Manifested.Sandbox`](https://github.com/eigenverft/Eigenverft.Manifested.Sandbox) is the fastest companion setup. It can bootstrap a fresh sandbox into a Codex-ready environment, provision the CLI and supporting runtimes, and give `Eigenverft.Manifested.Codex` a clean place to run programmable agent workflows safely and repeatably.
+
 ---
 
 ## 🏁 Quick Start
