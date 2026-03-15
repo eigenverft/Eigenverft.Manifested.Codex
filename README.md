@@ -4,25 +4,33 @@
 
 Windows-focused PowerShell module that provides a thin wrapper around the OpenAI Codex CLI for task execution, named sessions, and lightweight local state inspection.
 
-## What It Does
+## 🎯 Motivation
 
-- Resolves `codex` from `PATH`
-- Wraps `codex exec` and `codex exec resume`
+Eigenverft.Manifested.Codex exists to put the Codex CLI inside a controllable PowerShell wrapper, so agent runs can be steered from scripts, jobs, and repeatable tooling instead of only by hand. The goal is simple: make sandboxed, programmable agentic work practical, with enough structure to automate tasks, preserve context, and reliably continue where a run left off.
+
+🚀 **Key Features:**
+- Wraps `codex exec` and `codex exec resume` for repeatable PowerShell-driven runs
 - Persists named wrapper sessions in `%LOCALAPPDATA%\CodexSlots\sessions\named-sessions.json`
 - Tracks the last working directory per named session
-- Extracts and stores the last agent message from JSON output
-- Exposes a small inspection surface for the wrapper state
+- Captures the last agent message from JSON output for lightweight inspection
+- Exposes simple session and state helpers for listing, updating, and clearing wrapper metadata
 
-## Requirements
+---
+
+## ✅ Requirements
 
 - Windows
 - PowerShell 5.1 or newer
 - A working `codex` or `codex.cmd` on `PATH`
 - Any Codex CLI authentication or account setup required by your environment
 
-## Bootstrapper
+---
 
-The supported bootstrap entrypoint is:
+## 📥 Installation
+
+### 🔧 Bootstrapper (Windows)
+
+Use the supported bootstrap entrypoint:
 
 ```powershell
 iwr -useb https://raw.githubusercontent.com/eigenverft/Eigenverft.Manifested.Codex/refs/heads/main/iwr/bootstrapper.ps1 | iex
@@ -30,7 +38,7 @@ iwr -useb https://raw.githubusercontent.com/eigenverft/Eigenverft.Manifested.Cod
 
 The bootstrapper installs `PowerShellGet`, `PackageManagement`, and `Eigenverft.Manifested.Codex` from PSGallery, opens a new Windows PowerShell console, imports the module, and runs `Get-CodexVersion`.
 
-## Direct Install
+### 📦 Direct Install
 
 ```powershell
 Install-Module -Name Eigenverft.Manifested.Codex -Repository PSGallery -Scope CurrentUser -Force
@@ -38,7 +46,9 @@ Import-Module Eigenverft.Manifested.Codex -Force
 Get-CodexVersion
 ```
 
-## Quick Start
+---
+
+## 🏁 Quick Start
 
 ```powershell
 Import-Module Eigenverft.Manifested.Codex -Force
@@ -53,7 +63,7 @@ Invoke-CodexTask -Prompt "summarize this repository"
 Invoke-CodexTask -Prompt "list the first file you see" -Directory "C:\work"
 ```
 
-## Named Sessions
+### 🔁 Named Sessions
 
 ```powershell
 # Start or continue a named wrapper session
@@ -63,7 +73,34 @@ Invoke-CodexTask -Prompt "read the repo and remember context" -Directory "C:\wor
 Invoke-CodexTask -Prompt "apply the requested change" -SessionName "repo1"
 ```
 
-## State Surface
+---
+
+## 📚 Command Reference
+
+> 💡 Use `Get-Help <FunctionName>` for parameters, examples, and command details.
+
+### ▶️ Execution
+
+- `Get-CodexVersion` Resolve the available `codex` command and return version information.
+- `Invoke-CodexTask` Run a one-shot Codex task or resume a named wrapper session.
+
+### 🧭 State & Path Helpers
+
+- `Get-CodexState` Return wrapper readiness, local paths, and session-store status.
+- `Resolve-CodexCommandPath` Resolve `codex` or `codex.cmd` from `PATH`.
+- `Resolve-CodexDirectory` Normalize and validate the working directory for a task run.
+- `Get-CodexSessionStorePath` Return the JSON file used for named wrapper sessions.
+
+### 🗂️ Session Helpers
+
+- `Get-CodexSession` List all stored named sessions or fetch a specific one.
+- `Set-CodexSessionDirectory` Update the stored last directory for an existing session.
+- `Remove-CodexSession` Remove a single stored wrapper session.
+- `Clear-CodexSessions` Clear all stored wrapper-managed sessions.
+
+---
+
+## 🧾 State Surface
 
 `Get-CodexState` returns lightweight wrapper state:
 
@@ -80,14 +117,29 @@ Default local state path:
 - `%LOCALAPPDATA%\CodexSlots`
 - `%LOCALAPPDATA%\CodexSlots\sessions\named-sessions.json`
 
-## Notes
+---
 
-- `Invoke-CodexTask` preserves the existing wrapper contract for one-shot and named-session flows.
+## 📝 Behavior Notes
+
+- `Invoke-CodexTask` preserves the wrapper contract for both one-shot and named-session flows.
 - Named sessions store only wrapper-side metadata: session name, thread id, last directory, and update timestamp.
-- Advanced session maintenance helpers remain available if you need to inspect or clear wrapper-managed session metadata. Use `Get-Help` for details.
+- Advanced session maintenance helpers remain available if you need to inspect or clear wrapper-managed session metadata.
 - The wrapper defaults to `--dangerously-bypass-approvals-and-sandbox`. Use `-AllowDangerous:$false` if you want the initial run to use Codex sandboxing instead.
 - Resume runs temporarily change the PowerShell working directory because `codex exec resume` does not expose `--cd`.
 
-## License
+## 📄 License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+## 📫 Contact & Support
+
+For questions and support:
+
+- 🐛 Open an [issue](https://github.com/eigenverft/Eigenverft.Manifested.Codex/issues) in this repository
+- 🤝 Submit a [pull request](https://github.com/eigenverft/Eigenverft.Manifested.Codex/pulls) with improvements
+
+---
+
+<div align="center">
+Made with ❤️ by Eigenverft
+</div>
