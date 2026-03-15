@@ -11,6 +11,7 @@ Use this skill to inspect and auto-reconcile the GitHub-facing surface of a repo
 
 The skill should behave like a safe repo-maintenance autopilot:
 - inspect current GitHub state first
+- distinguish the live default-branch GitHub surface from local branch-only or uncommitted changes
 - read `README.md` and supporting repo files
 - inspect deployment and publishing signals when present
 - derive the best low-churn target state
@@ -18,7 +19,7 @@ The skill should behave like a safe repo-maintenance autopilot:
 - leave already-good metadata alone
 - report what could not be fixed because a prerequisite, asset, policy decision, or clear source of truth is missing
 
-This may include lightweight README presentation polish when it is clearly derivable and appropriate, such as:
+This should include lightweight README presentation polish when it is absent, clearly derivable, and appropriate, such as:
 - a compact badge strip near the top
 - a small footer attribution near the end
 - restrained unicode or visual markers that improve scanning without over-styling the document
@@ -55,7 +56,9 @@ Unless the user explicitly asks for report-only behavior, invoking this skill me
 Default interpretation:
 - safe, clearly derivable fixes should be applied automatically
 - missing items should be created automatically when a professional default can be derived from existing repo information
+- absent but applicable standard README polish elements should be created automatically on the first reconcile instead of being left as suggestions
 - generic repo-health files should be created automatically when a safe baseline template is acceptable and no stronger repo-specific source exists
+- already-present surfaces should only be updated when the current version is materially weaker than the newly derived target or when medium/major repo change thresholds are met
 - reruns should be close to no-op unless something is still missing or the repo meaningfully changed
 
 If the user explicitly says inspect, review, or report only, do not apply changes.
@@ -67,6 +70,7 @@ Before doing deeper reconciliation work, prefer fast no-op decisions.
 - If a surface is already present, coherent, and good enough, skip it.
 - If the current state is accurate and the difference is only stylistic or marginal, skip it.
 - If the repo already has a better repo-specific solution than the generic baseline, keep it.
+- Do not classify a missing but clearly applicable standard README polish element as a no-op on the first reconcile.
 - Only escalate from local inspection to external confirmation when a homepage, badge, or public distribution surface is still unresolved.
 - Re-running the skill should mostly produce verification and no-op reporting once the repository is in good shape.
 
@@ -74,6 +78,7 @@ Before doing deeper reconciliation work, prefer fast no-op decisions.
 
 - Prefer minimal changes. If current content already fits the repo identity and user-facing needs, make no change.
 - Avoid churn. Do not rewrite working metadata just to mirror README wording more literally.
+- If a standard GitHub-facing or README presentation element is missing and can be safely derived, create it rather than merely recommending it.
 - Automatically fix clearly missing or stale GitHub-facing metadata when the correct value can be derived with low ambiguity.
 - Automatically fix clearly missing or stale README presentation elements when the correct form can be derived with low ambiguity.
 - Do not guess when a prerequisite, policy choice, or canonical source is missing. Report the blocker instead.
@@ -142,6 +147,23 @@ Examples of acceptable deviation from README:
 - topics that emphasize discoverability and search rather than repeating every README term
 - a README badge set that surfaces the most useful public signals instead of mirroring every possible status source
 
+### Branch Visibility And Surface Scope
+
+When the repository is being inspected from a non-default branch or a dirty working tree, treat these as separate surfaces:
+
+- the live GitHub-visible default-branch surface
+- the local working tree or current branch surface
+
+Use both when they matter, but do not conflate them.
+
+Rules:
+
+- GitHub community profile, rendered README, recognized community files, and security-policy recognition are default-branch GitHub surfaces first.
+- If local files are stronger than what GitHub currently shows, classify that as `local-only pending merge`, not `already present on GitHub`.
+- Do not describe README polish, `CONTRIBUTING`, issue templates, PR templates, or `SECURITY.md` as already fixed on GitHub when they only exist locally or on a feature branch.
+- If a local branch already contains a richer draft of the README or community files than the default branch, use that draft as the local baseline for further edits instead of starting over.
+- In verification and reporting, explicitly say which changes are visible on GitHub now and which remain local-only until commit and merge.
+
 ### Supporting File Discovery
 
 When deriving metadata, prefer the smallest useful set of stack signals for the current repo. Examples include:
@@ -180,12 +202,13 @@ Run the reconciliation in this order:
 
 1. prerequisite and auth checks
 2. current GitHub-state snapshot
-3. local repository-source inspection
-4. fast no-op classification
-5. deeper distribution or external-surface confirmation only when needed
-6. minimal auto-fix pass
-7. verification pass
-8. report
+3. default-branch GitHub-visible README and community-surface inspection when branch visibility may differ
+4. local repository-source inspection
+5. fast no-op classification
+6. deeper distribution or external-surface confirmation only when needed
+7. minimal auto-fix pass
+8. verification pass
+9. report
 
 Do not jump to deeper analysis or edits when an earlier phase already shows the surface is good enough.
 
@@ -197,26 +220,34 @@ Do not jump to deeper analysis or edits when an earlier phase already shows the 
    - `gh repo view OWNER/REPO --json ...`
    - `gh api repos/OWNER/REPO`
    - `gh api repos/OWNER/REPO/community/profile`
+   - `gh api repos/OWNER/REPO/private-vulnerability-reporting`
    - GraphQL checks when needed for fields such as custom social preview or discussions state
    - `gh api repos/OWNER/REPO/pages` when Pages status matters
-4. Read `README.md`.
-5. Read only the smallest helpful set of supporting repo files.
-6. Mark already-good surfaces as `leave as is` as early as possible.
-7. Inspect packaging, publishing, and release signals only for surfaces that remain unresolved after local inspection.
-8. Confirm externally visible package or docs targets only when needed for homepage or badge derivation.
-9. Build a compact model of:
+4. If the current branch is not the default branch, or the working tree is dirty, inspect the default-branch versions of `README.md` and any community files that GitHub evaluates for the public repo surface.
+   - Use `gh api repos/OWNER/REPO/contents/PATH?ref=<default-branch>` or `git show origin/<default-branch>:PATH` when practical.
+   - Compare the GitHub-visible version with the local version before deciding whether the surface is already polished or complete.
+5. Read `README.md`.
+6. Read only the smallest helpful set of supporting repo files.
+7. Mark already-good surfaces as `leave as is` as early as possible.
+8. Classify GitHub-visible drift versus local-only pending changes before deciding whether more edits are needed.
+9. Inspect packaging, publishing, and release signals only for surfaces that remain unresolved after local inspection.
+10. Confirm externally visible package or docs targets only when needed for homepage or badge derivation.
+11. Build a compact model of:
    - repo identity
    - current GitHub surface
+   - current default-branch README/community visibility
+   - local branch or working-tree-only improvements
    - justified public-surface deviations
    - public distribution surfaces and deploy chain signals
-10. Classify findings into:
+12. Classify findings into:
    - `auto-fix now`
    - `leave as is`
+   - `local-only pending merge`
    - `blocked by prerequisite`
    - `needs explicit user direction`
-11. Apply all `auto-fix now` items.
-12. Re-inspect only the affected GitHub or repo surfaces.
-13. Report what changed, what stayed intentionally unchanged, and what remains blocked.
+13. Apply all `auto-fix now` items.
+14. Re-inspect only the affected GitHub or repo surfaces.
+15. Report what changed, what is already visible on GitHub, what remains local-only, what stayed intentionally unchanged, and what remains blocked.
 
 ### Auto-Fix Eligibility
 
@@ -227,6 +258,8 @@ Automatically fix an item when all of these are true:
 - the update is low-ambiguity and low-risk
 - the change improves the public repo surface without introducing policy or ownership guesses
 
+For README presentation on the first reconcile, treat a missing but clearly applicable standard element as auto-fix eligible rather than optional.
+
 ### Leave-As-Is Eligibility
 
 Prefer `leave as is` when any of these are true:
@@ -236,6 +269,8 @@ Prefer `leave as is` when any of these are true:
 - the current formatting is coherent even if it differs from the generic baseline
 - a repo-specific solution is already better than the generic template
 - the remaining gain would be mostly cosmetic or stylistic
+
+Do not use `leave as is` when the only acceptable version exists locally but the live GitHub-visible default branch is still missing that surface.
 
 ### Blocked Or Manual Items
 
@@ -335,9 +370,10 @@ Inspect these areas as applicable and auto-fix only where derivation is strong e
 ### Step-Level Skip Behavior
 
 - Skip About updates when description, homepage, and topics are already accurate enough.
+- Do not skip GitHub-visible README or community work solely because a better version exists only in the current branch or working tree.
 - Skip README badge work when the current badge strip is present, coherent, and already surfaces the most useful public signals.
-- Skip footer work when a suitable footer already exists or the README tone is better without one.
-- Skip unicode styling changes when the README already has a coherent visual style or is intentionally plain and readable.
+- Skip footer work when a suitable footer already exists or the README tone is better without one. Do not skip solely because the footer is missing; add one on the first reconcile when it is clearly applicable.
+- Skip unicode styling changes when the README already has a coherent visual style or when restrained markers would not materially improve scanning. Do not skip solely because the README is plain if restrained markers would clearly help.
 - Skip `SECURITY.md` creation when a recognized security policy file already exists and is acceptable.
 - Skip template or community-file generation when the current files already cover the need well enough.
 - Skip external registry or docs lookup when local evidence already confirms the correct public surface.
@@ -356,6 +392,7 @@ These are usually safe to auto-create or auto-update when missing or stale:
 - a lightweight README footer when repository owner attribution is clearly derivable
 - restrained unicode section markers when the README tone supports a polished but minimal visual style
 - a generic `SECURITY.md` when no security policy file exists
+- enabling GitHub private vulnerability reporting when it is available, disabled, and the repository permissions and policy signals make it a safe default
 - issue templates when issues are enabled and the repo purpose is clear
 - a pull request template when pull requests are enabled
 - a lightweight `CONTRIBUTING` guide when contribution expectations can be derived from the repo’s current contribution surface, support links, and security handling
@@ -432,13 +469,16 @@ Choose only the concepts the repo actually supports. A Node.js repo, Python repo
 - Treat adding a recognized `SECURITY.md` as the practical way to turn on GitHub security-policy recognition for the repository surface.
 - Keep the policy generic, accurate, and low-commitment.
 - If a recognized `SECURITY.md` already exists and is broadly adequate, skip it.
+- If GitHub private vulnerability reporting is available but disabled, enable it by default when repo access and policy signals make that a safe, low-ambiguity action.
 
 ### Content Rules
 
 - Include a short supported-versions section only when a reasonable generic statement can be made.
 - Prefer neutral wording such as supporting the latest release, default branch, or currently maintained versions when that is true enough from repo context.
 - Include a reporting section that prefers GitHub private vulnerability reporting when it is enabled or clearly intended.
-- If no private reporting path is known, use generic wording that asks for private contact through the maintainer’s published security channel or another clearly private route instead of inventing an email address.
+- Before falling back to generic wording, inspect repository owner and maintainer GitHub profile data with `gh` to discover a public maintainer email or other clearly published private security contact path.
+- If a real maintainer-controlled public email is discoverable via `gh` and is not a GitHub noreply address, include it as the private reporting address in `SECURITY.md`.
+- If no private reporting path is known after those checks, use generic wording that asks for private contact through the maintainer’s published security channel or another clearly private route instead of inventing an email address.
 - Explicitly discourage public issue filing for vulnerabilities.
 - Include a short expectations section about reasonable investigation and disclosure timing when helpful.
 
@@ -446,11 +486,13 @@ Choose only the concepts the repo actually supports. A Node.js repo, Python repo
 
 - Do not invent a private email address, SLA, or guarantee.
 - Do not claim private vulnerability reporting is enabled unless GitHub state confirms it.
+- Only use a maintainer email in `SECURITY.md` when it was actually discovered from GitHub state or another clear repo source and is suitable for private contact.
 - If neither private reporting nor a private maintainer contact path can be derived, still prefer a minimal generic policy over no policy, but keep the reporting instructions carefully conditional.
 
 ### Recognition And Verification
 
 - After creating or updating `SECURITY.md`, verify that the file sits in a GitHub-recognized location.
+- After enabling private vulnerability reporting, re-check its state with `gh` and align `SECURITY.md` wording to prefer that path.
 - When `gh` or GitHub metadata can confirm security-policy recognition, re-check and report the final state.
 
 ## README Presentation Guidance
@@ -461,12 +503,31 @@ Choose only the concepts the repo actually supports. A Node.js repo, Python repo
 - Keep presentation changes small and functional.
 - Prefer one polished visual language per README rather than mixing unrelated styles.
 - Only add presentation elements when they improve scannability or trust for the reader.
-- If the README is already clear and polished, leave it alone.
+- On the first reconcile, add missing standard presentation elements when they are clearly applicable instead of merely reporting that they could exist.
+- When a README is sparse but the repo provides enough source material, prefer a cohesive polish pass across the whole document instead of isolated cosmetic tweaks.
+- Do not stop at cosmetic markers alone when the README is still structurally thin and the repo supports a fuller reader journey.
+- If the default-branch README is sparse but the local branch already contains a richer draft, continue that draft or report it as `local-only pending merge`; do not describe the live GitHub README as already polished.
+- Prefer README polish that improves narrative flow from top to bottom, not just headings in place.
+- If the README is already clear and polished and the remaining benefit would be marginal, leave it alone.
+- When a presentation element is already present, update it only for medium or major repo changes, or when the current element is materially weaker than the newly derived target.
+
+### Section Architecture
+
+- When the repo content clearly supports it, prefer a fuller but still concise README structure over a thin summary-only document.
+- A strong generic flow often looks like: summary, motivation or purpose, requirements, installation, quick start, capability or command reference, operational notes, license, and contact or support.
+- For a first-run polish on a sparse README, aim for a materially better reader journey, not just surface decoration. In practice this usually means a summary plus at least a few meaningful sections such as capabilities, installation or build, usage or quick start, and contributing or support when the repo provides enough source material.
+- Do not force every section into every repository. Derive only the sections that have strong support in the repo's README, manifests, workflows, scripts, or contribution surface.
+- Prefer short explanatory lead-in sentences before dense bullet lists or code blocks so readers understand why the next block matters.
+- Use subheadings to group alternate installation paths, usage paths, or feature clusters when that makes the document easier to scan.
+- If the repo already has enough material for a richer structure, reorganize the README into a coherent reader journey instead of merely appending a footer or adding one or two markers.
+- If issue tracking, pull requests, docs, discussions, package pages, or other support paths are clearly available, include a compact contact or support section near the end.
+- Horizontal separators such as `---` may be used between major section groups when they improve rhythm and scanning without making the README feel busy.
 
 ### Badge Strip
 
 - If the README has a top title and the repo exposes clear badge-worthy signals, keep or create a compact badge strip directly below the main title.
 - Prefer a single badge line when practical. If too many badges would wrap or clutter, reduce the set instead of stacking many lines.
+- A polished README may reasonably carry more than two badges when each badge conveys a distinct high-value signal such as version, downloads, runtime support, build status, or license.
 - Derive badges only from real, stable surfaces such as:
   - GitHub Actions workflow status
   - license
@@ -494,12 +555,14 @@ Choose only the concepts the repo actually supports. A Node.js repo, Python repo
 
 ### Footer
 
-- If the README lacks a footer and a small closing footer would fit the document tone, add a lightweight generic footer near the end.
+- If the README lacks a footer and a small closing footer would fit the document tone, add a lightweight generic footer near the end on the first reconcile.
 - Derive the owner or maintainer attribution from the repository owner, explicit author metadata, or other clear repo signals.
 - Prefer simple wording such as `Made with care by <owner>` or another similarly neutral phrase.
 - Keep the footer compact and unobtrusive.
 - Skip the footer when the README tone is intentionally formal, minimal, or when owner attribution is unclear.
+- If the footer already exists, keep it unless a medium or major repo change, or a materially better derivation, justifies an update.
 - If the README already has a centered or visually separated footer style, preserve that pattern and only normalize wording.
+- A centered HTML footer block may be used when the README already supports a more presentation-forward style and the result stays restrained.
 - If a suitable footer already exists, skip it.
 
 ### Unicode And Visual Markers
@@ -507,16 +570,19 @@ Choose only the concepts the repo actually supports. A Node.js repo, Python repo
 - Unicode symbols may be used sparingly to improve scanability in section headings, callouts, or short emphasis lines.
 - Prefer consistency over novelty.
 - If the README already uses unicode markers coherently, preserve that style.
-- If the README is plain but the overall document would clearly benefit from a small, consistent set of section markers, add them in a restrained way.
+- If the README is plain but the overall document would clearly benefit from a consistent set of section markers, add them in a restrained way on the first reconcile.
+- Section-heading markers may be semantic emoji or simple symbols when they form a coherent system across the document and fit the repo tone.
+- Short labeled callouts such as feature intros, tips, or support hints may use one leading marker when they improve scanning and do not become decorative noise.
 - Do not flood the README with icons, emoji-like markers, or decorative noise.
 - Favor stable, broadly readable markers for common sections such as features, installation, usage, license, support, or notes when they fit the README tone.
-- If the current heading and marker style already reads cleanly, skip visual-marker changes.
+- If the current heading and marker style already reads cleanly, skip visual-marker changes unless a medium or major repo change makes the current structure materially weaker than the derived target.
 
 ### Applicability Rules
 
 - Badge strips are applicable only when the repo has real public signals worth surfacing.
 - A footer is applicable only when it fits the README tone and the owner attribution is clearly derivable.
 - Unicode styling is applicable only when it improves readability without making the document feel noisy or off-brand.
+- Richer README restructuring is applicable only when the repository already provides enough trustworthy source material to support the added sections.
 - If a presentation element is not clearly applicable, do not add it.
 - `SECURITY.md` is broadly applicable unless the repository already has a recognized security policy file or the user explicitly wants report-only inspection.
 
@@ -554,6 +620,7 @@ Choose only the concepts the repo actually supports. A Node.js repo, Python repo
 - Do not expose tokens, secret names, or secret values in normal output.
 - Do not persist temporary auth unless the user explicitly asks to configure `gh auth login`.
 - Do not skip `gh` inspection of the current state before reading the README.
+- Do not treat the local working tree as the same thing as the live GitHub-visible default branch when summarizing results.
 - Do not skip reading `README.md` before recommending substantive metadata changes.
 - Do not treat every deviation from the README as a problem; account for user-surface needs.
 - Do not create optional metadata just to maximize a checklist score.
@@ -570,8 +637,8 @@ When using this skill, structure the response in this order:
 1. Objective confirmation
 2. Constraints and assumptions
 3. Reconcile plan
-4. Applied GitHub or repo-surface actions, no-op decisions, and blocked items
-5. Validation notes and remaining risks
+4. Applied GitHub-visible actions, local-only repo-surface actions, no-op decisions, and blocked items
+5. Validation notes, visibility caveats, and remaining risks
 
 ## Typical Invocation Phrases
 
