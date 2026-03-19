@@ -85,6 +85,31 @@ function Resolve-GeminiCommandPath {
     throw 'gemini was not found on PATH. Install the Gemini CLI or add it to PATH before using Invoke-GeminiTask.'
 }
 
+function ConvertFrom-GeminiJsonLine {
+    [CmdletBinding()]
+    param(
+        [AllowNull()]
+        [string]$Line
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Line)) {
+        return $null
+    }
+
+    $text = [string]$Line
+
+    if ($text.Length -gt 0 -and [int][char]$text[0] -eq 0xFEFF) {
+        $text = $text.Substring(1)
+    }
+
+    try {
+        return ($text | ConvertFrom-Json -Depth 100)
+    }
+    catch {
+        return $null
+    }
+}
+
 function Convert-GeminiProcessOutputToLines {
     [CmdletBinding()]
     param(
@@ -103,6 +128,29 @@ function Convert-GeminiProcessOutputToLines {
     }
 
     return @($lines)
+}
+
+function Get-GeminiInvocationLineRecords {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Invocation
+    )
+
+    $records =
+        foreach ($sourceName in @('StdErrLines', 'StdOutLines')) {
+            foreach ($line in @($Invocation.$sourceName)) {
+                $text = [string]$line
+
+                [pscustomobject]@{
+                    Source = $sourceName
+                    Line   = $text
+                    Event  = ConvertFrom-GeminiJsonLine -Line $text
+                }
+            }
+        }
+
+    return @($records)
 }
 
 function ConvertTo-GeminiProcessArgument {
@@ -235,8 +283,8 @@ function Get-GeminiSessionListing {
 
     $sessionIds = New-Object System.Collections.Generic.List[string]
 
-    foreach ($line in @($invocation.StdOutLines)) {
-        $text = [string]$line
+    foreach ($record in @(Get-GeminiInvocationLineRecords -Invocation $invocation)) {
+        $text = [string]$record.Line
         $match = [regex]::Match($text, '\[(?<id>[^\]]+)\]')
 
         if ($match.Success) {
@@ -248,8 +296,62 @@ function Get-GeminiSessionListing {
         Succeeded  = ($invocation.ExitCode -eq 0)
         ExitCode   = $invocation.ExitCode
         SessionIds = @($sessionIds | Select-Object -Unique)
-        Lines      = @($invocation.StdOutLines + $invocation.StdErrLines | ForEach-Object { [string]$_ })
+        Lines      = @((Get-GeminiInvocationLineRecords -Invocation $invocation) | ForEach-Object { [string]$_.Line })
     }
+}
+
+function Test-GeminiListedSessionId {
+    [CmdletBinding()]
+    param(
+        [AllowNull()]
+        [string]$StoredSessionId,
+
+        [string[]]$ListedSessionIds
+    )
+
+    if ([string]::IsNullOrWhiteSpace($StoredSessionId)) {
+        return $false
+    }
+
+    foreach ($listedSessionId in @($ListedSessionIds)) {
+        $candidate = [string]$listedSessionId
+
+        if ([string]::IsNullOrWhiteSpace($candidate)) {
+            continue
+        }
+
+        if ($StoredSessionId.Equals($candidate, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+
+        if ($StoredSessionId.StartsWith($candidate, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+
+        if ($candidate.StartsWith($StoredSessionId, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Complete-GeminiAssistantMessageCapture {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Text.StringBuilder]$CurrentMessageBuilder,
+
+        [Parameter(Mandatory = $true)]
+        [ref]$LastAgentMessage
+    )
+
+    if ($CurrentMessageBuilder.Length -le 0) {
+        return
+    }
+
+    $LastAgentMessage.Value = $CurrentMessageBuilder.ToString()
+    [void]$CurrentMessageBuilder.Clear()
 }
 
 function Invoke-GeminiTask {
@@ -356,7 +458,7 @@ the wrapper starts a fresh Gemini session instead of forcing a stale resume id.
         if ($preRunListing.Succeeded) {
             $storedSessionId = [string]$existingSession.SessionId
 
-            if (-not ($preRunListing.SessionIds -contains $storedSessionId)) {
+            if (-not (Test-GeminiListedSessionId -StoredSessionId $storedSessionId -ListedSessionIds $preRunListing.SessionIds)) {
                 $existingSession = $null
             }
         }
@@ -432,54 +534,103 @@ the wrapper starts a fresh Gemini session instead of forcing a stale resume id.
     $lastAgentMessage = $null
     $structuredErrorMessage = $null
     $exitCode = 0
-    $assistantMessageBuilder = New-Object System.Text.StringBuilder
+    $currentAssistantMessageBuilder = New-Object System.Text.StringBuilder
 
     $invocation = Invoke-GeminiProcess -GeminiCommandPath $geminiCmd -Arguments $argArray -Directory $effectiveDirectory
     $exitCode = $invocation.ExitCode
 
     if ($effectiveOutputFormat -eq 'stream-json') {
-        foreach ($line in @($invocation.StdErrLines + $invocation.StdOutLines)) {
-            Write-Host ([string]$line)
+        $streamJsonRecords = @(Get-GeminiInvocationLineRecords -Invocation $invocation)
+
+        foreach ($record in $streamJsonRecords) {
+            Write-Host ([string]$record.Line)
         }
 
-        foreach ($line in @($invocation.StdOutLines)) {
-            $text = [string]$line
+        foreach ($record in $streamJsonRecords) {
+            $evt = $record.Event
 
-            try {
-                $evt = $text | ConvertFrom-Json -Depth 100
+            if (-not $evt) {
+                Complete-GeminiAssistantMessageCapture -CurrentMessageBuilder $currentAssistantMessageBuilder -LastAgentMessage ([ref]$lastAgentMessage)
+                continue
+            }
 
-                if ($evt.type -eq 'init' -and $evt.session_id) {
-                    $observedSessionId = [string]$evt.session_id
-                }
+            if (
+                $evt.type -eq 'init' -and
+                $evt.PSObject.Properties.Match('session_id').Count -gt 0 -and
+                $evt.session_id
+            ) {
+                $observedSessionId = [string]$evt.session_id
 
-                if ($evt.type -eq 'message' -and $evt.role -eq 'assistant' -and $evt.content) {
-                    if ($evt.PSObject.Properties['delta'] -and [bool]$evt.delta) {
-                        [void]$assistantMessageBuilder.Append([string]$evt.content)
+                if (-not [string]::IsNullOrWhiteSpace($SessionName)) {
+                    $sessionMap[$sessionKey] = @{
+                        SessionName   = $SessionName
+                        SessionId     = $observedSessionId
+                        LastDirectory = $effectiveDirectory
+                        UpdatedUtc    = [DateTime]::UtcNow.ToString('o')
                     }
-                    elseif ($assistantMessageBuilder.Length -eq 0) {
-                        [void]$assistantMessageBuilder.Append([string]$evt.content)
-                    }
-                }
 
-                if ($evt.type -eq 'result' -and $evt.error -and $evt.error.message) {
-                    $structuredErrorMessage = [string]$evt.error.message
+                    Write-GeminiSessionMap -SessionMap $sessionMap -SessionStorePath $sessionStorePath
+                    $existingSession = $sessionMap[$sessionKey]
                 }
             }
-            catch {
-                # Ignore non-JSON lines.
+
+            $isAssistantMessage = [bool](
+                $evt.type -eq 'message' -and
+                $evt.PSObject.Properties.Match('role').Count -gt 0 -and
+                $evt.role -eq 'assistant' -and
+                $evt.PSObject.Properties.Match('content').Count -gt 0 -and
+                $evt.content
+            )
+
+            if ($isAssistantMessage) {
+                $isDeltaMessage =
+                    [bool](
+                        $evt.PSObject.Properties.Match('delta').Count -gt 0 -and
+                        [bool]$evt.delta
+                    )
+
+                if (-not $isDeltaMessage) {
+                    Complete-GeminiAssistantMessageCapture -CurrentMessageBuilder $currentAssistantMessageBuilder -LastAgentMessage ([ref]$lastAgentMessage)
+                }
+
+                [void]$currentAssistantMessageBuilder.Append([string]$evt.content)
+                continue
+            }
+
+            Complete-GeminiAssistantMessageCapture -CurrentMessageBuilder $currentAssistantMessageBuilder -LastAgentMessage ([ref]$lastAgentMessage)
+
+            if (
+                $evt.type -eq 'error' -and
+                $evt.PSObject.Properties.Match('message').Count -gt 0 -and
+                $evt.message
+            ) {
+                $structuredErrorMessage = [string]$evt.message
+            }
+
+            if (
+                $evt.type -eq 'result' -and
+                $evt.PSObject.Properties.Match('error').Count -gt 0 -and
+                $evt.error -and
+                $evt.error.message
+            ) {
+                $structuredErrorMessage = [string]$evt.error.message
             }
         }
 
-        if ($assistantMessageBuilder.Length -gt 0) {
-            $lastAgentMessage = $assistantMessageBuilder.ToString()
-        }
+        Complete-GeminiAssistantMessageCapture -CurrentMessageBuilder $currentAssistantMessageBuilder -LastAgentMessage ([ref]$lastAgentMessage)
     }
     elseif ($effectiveOutputFormat -eq 'json') {
         foreach ($line in @($invocation.StdErrLines)) {
             Write-Host ([string]$line)
         }
 
-        $rawStructuredOutput = [string]$invocation.StdOutRaw
+        $rawStructuredOutput =
+            if (-not [string]::IsNullOrWhiteSpace($invocation.StdOutRaw)) {
+                [string]$invocation.StdOutRaw
+            }
+            else {
+                [string]$invocation.StdErrRaw
+            }
 
         if (-not [string]::IsNullOrWhiteSpace($rawStructuredOutput)) {
             Write-Host ($rawStructuredOutput.TrimEnd("`r", "`n"))
