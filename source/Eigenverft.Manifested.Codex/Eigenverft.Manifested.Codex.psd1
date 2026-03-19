@@ -13,7 +13,7 @@
 RootModule = 'Eigenverft.Manifested.Codex.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.20261.38818'
+ModuleVersion = '1.20261.38853'
 
 # Supported PSEditions
 CompatiblePSEditions = @('Desktop', 'Core')
