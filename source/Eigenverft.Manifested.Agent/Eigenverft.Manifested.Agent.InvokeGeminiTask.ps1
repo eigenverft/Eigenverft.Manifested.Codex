@@ -1,5 +1,5 @@
 <#
-    Eigenverft.Manifested.Codex.InvokeGeminiTask
+    Eigenverft.Manifested.Agent.InvokeGeminiTask
 #>
 
 function Get-GeminiSessionStorePath {

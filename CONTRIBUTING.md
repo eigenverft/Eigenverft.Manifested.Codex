@@ -1,8 +1,8 @@
 # Contributing
 
-Thanks for helping improve `Eigenverft.Manifested.Codex`.
+Thanks for helping improve `Eigenverft.Manifested.Agent`.
 
-This repository packages a Windows-focused PowerShell wrapper around the OpenAI Codex CLI, with a strong emphasis on repeatable task execution, named sessions, and lightweight local state inspection. Contributions should preserve that focus and keep the module straightforward to script and operate.
+This repository packages a Windows-focused PowerShell wrapper around agent CLIs, including the OpenAI Codex CLI and experimental Gemini task flows, with a strong emphasis on repeatable task execution, named sessions, and lightweight local state inspection. Contributions should preserve that focus and keep the module straightforward to script and operate.
 
 ## Before You Start
 
@@ -21,9 +21,9 @@ This repository packages a Windows-focused PowerShell wrapper around the OpenAI 
 Use the smallest validation set that matches the scope of your change.
 
 ```powershell
-Test-ModuleManifest .\source\Eigenverft.Manifested.Codex\Eigenverft.Manifested.Codex.psd1
-. .\source\Eigenverft.Manifested.Codex.TestImports.ps1
-Import-Module .\source\Eigenverft.Manifested.Codex\Eigenverft.Manifested.Codex.psd1 -Force
+Test-ModuleManifest .\source\Eigenverft.Manifested.Agent\Eigenverft.Manifested.Agent.psd1
+. .\source\Eigenverft.Manifested.Agent.TestImports.ps1
+Import-Module .\source\Eigenverft.Manifested.Agent\Eigenverft.Manifested.Agent.psd1 -Force
 Get-CodexState
 ```
 

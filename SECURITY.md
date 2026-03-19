@@ -4,7 +4,7 @@
 
 This repository currently supports:
 
-- the latest published PowerShell Gallery release of `Eigenverft.Manifested.Codex`
+- the latest published PowerShell Gallery release of `Eigenverft.Manifested.Agent`
 - the current `main` branch
 
 Older versions may still be useful, but security fixes for them are best-effort and not guaranteed.

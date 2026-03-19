@@ -1,11 +1,11 @@
 <#
-    Eigenverft.Manifested.Codex.InvokeCodexTask
+    Eigenverft.Manifested.Agent.InvokeCodexTask
 #>
 
 function Get-CodexLocalRoot {
     [CmdletBinding()]
     param(
-        [string]$LocalRoot = (Join-Path $env:LOCALAPPDATA 'CodexSlots')
+        [string]$LocalRoot = (Join-Path $env:LOCALAPPDATA 'Eigenverft.Manifested.Agent')
     )
 
     return [System.IO.Path]::GetFullPath($LocalRoot)
@@ -84,7 +84,7 @@ function Resolve-CodexCommandPath {
     }
 
     if (-not $resolvedCodex) {
-        throw 'codex was not found on PATH. Install the Codex CLI or add it to PATH before using Eigenverft.Manifested.Codex.'
+        throw 'codex was not found on PATH. Install the Codex CLI or add it to PATH before using Eigenverft.Manifested.Agent.'
     }
 
     if ($resolvedCodex.PSObject.Properties['Path'] -and $resolvedCodex.Path) {

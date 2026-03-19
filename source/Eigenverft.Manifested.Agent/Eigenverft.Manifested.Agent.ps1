@@ -16,7 +16,7 @@ function Get-CodexVersion {
     [CmdletBinding()]
     param()
 
-    $moduleName = 'Eigenverft.Manifested.Codex'
+    $moduleName = 'Eigenverft.Manifested.Agent'
     $moduleInfo = @(Get-Module -ListAvailable -Name $moduleName | Sort-Object -Descending -Property Version | Select-Object -First 1)
 
     if (-not $moduleInfo) {

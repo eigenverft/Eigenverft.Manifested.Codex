@@ -7,7 +7,7 @@ name: cicd.yml
 on:
   push:
     paths:
-      - 'source/Eigenverft.Manifested.Codex/**'
+      - 'source/Eigenverft.Manifested.Agent/**'
     branches:
       - 'master'
       - 'main'
